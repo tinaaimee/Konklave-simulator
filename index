@@ -26,7 +26,7 @@
       { key: 'gender', prompt: 'Er du mann?', options: ['Ja', 'Nei'] },
       { key: 'continent', prompt: 'Hvilket kontinent føler du deg mest hjemme på?', options: [] },
       { key: 'goat', prompt: 'Hvem er GOAT?', options: ['Francis', 'Benedict XVI', 'John Paul II', 'Annen'] },
-      { key: 'q1', prompt: 'Skal kirken tilrettelegge for inkludering, herunder relatert til spørsmål om LHBTQ+ rettigheter og likestilling i kirken?', options: [1,2,3,4,5] },
+      { key: 'q1', prompt: 'Hva er ditt syn på LHBTQ+ rettigheter og likestilling i kirken?', options: [1,2,3,4,5] },
       { key: 'q2', prompt: 'Er kirken klar til å bli den nye superhelten i kampen mot klimaendringer og sosial rettferdighet?', options: [1,2,3,4,5] },
       { key: 'q3', prompt: 'Hva synes du om å gi kirkens liturgier en makeover og inkludere kvinnelige prester, biskoper, kardinaler eller en kvinnelig pave?', options: [1,2,3,4,5] }
     ];
@@ -37,7 +37,6 @@
       if (answers.continent && contVal !== ansCont) return false;
       const popeVal = String(c.PopeWhoCreated || '').trim().toLowerCase();
       const ansGoat = String(answers.goat || '').trim().toLowerCase();
-      // Hvis brukeren valgte 'Annen', hopp over Pave-filteret
       if (answers.goat && answers.goat !== 'Annen' && !popeVal.includes(ansGoat)) return false;
       if (avg != null) {
         const orient = String(c.Orientation || '').trim().toLowerCase();
@@ -59,17 +58,14 @@
     function Quiz({ data, onFinish }) {
       const [step, setStep] = useState(0);
       const [answers, setAnswers] = useState({});
-
       const continentOptions = useMemo(() => {
         return Array.from(new Set(data.map(d => String(d.Continent || '').trim())))
           .filter(v => v)
           .sort();
       }, [data]);
-
       const current = questions[step];
       const remainingData = data.filter(c => matches(c, answers, null));
       const remaining = remainingData.length;
-
       const opts = current.key === 'continent' ? continentOptions : current.options;
 
       const handleChoice = val => {
@@ -175,38 +171,47 @@
       const [ended, setEnded] = useState(false);
       const [finalCandidate, setFinalCandidate] = useState(null);
 
-      const handleFile = e => {
-        const file = e.target.files[0]; if (!file) return;
-        const reader = new FileReader();
-        reader.onload = ev => {
-          const wb = XLSX.read(new Uint8Array(ev.target.result), { type: 'array' });
-          const ws = wb.Sheets[wb.SheetNames[0]];
-          const arr = XLSX.utils.sheet_to_json(ws, { defval: '' });
-          const mapped = arr.map(r => ({
-            Name: r['Name'],
-            YearOfBirth: r['Fødselsår'],
-            CountryOfBirth: r['Fødeland'],
-            Continent: r['Kontinent'] || r['Continent'] || '', // Støtte for engelsk kolonnenavn
-            Orientation: r['Orientering'],
-            Rank: r['Rank'] || r['Rang'] || '',
-            PopeWhoCreated: r['Kreert av'],
-            Rationale: r['Rasjonale for orientering'],
-            AdditionalNotes: r['Tilleggsopplysninger'] || '',
-            Favorite: String(r['Tilleggsopplysninger'] || '').toLowerCase().includes('favorittstempel'),
-          }));
-          setData(mapped); setLoaded(true);
-        };
-        reader.readAsArrayBuffer(file);
-      };
+      useEffect(() => {
+  async function fetchExcel() {
+    try {
+      const response = await fetch("https://raw.githubusercontent.com/tinaaimee/Konklave-simulator/main/Konklavesimulator%201%20(1).xlsx");
+      if (!response.ok) throw new Error("Nettverksfeil ved henting av Excel-fil");
+
+      const data = await response.arrayBuffer();
+      const workbook = XLSX.read(data, { type: "array" });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const arr = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+
+      const mapped = arr.map(r => ({
+        Name: r['Name'],
+        YearOfBirth: r['Fødselsår'],
+        CountryOfBirth: r['Fødeland'],
+        Continent: r['Kontinent'],
+        Orientation: r['Orientering'],
+        Rank: r['Rank'] || r['Rang'] || '',
+        PopeWhoCreated: r['Kreert av'],
+        Rationale: r['Rasjonale for orientering'],
+        AdditionalNotes: r['Tilleggsopplysninger'] || '',
+        Favorite: String(r['Tilleggsopplysninger'] || '').toLowerCase().includes('favorittstempel'),
+      }));
+
+      setData(mapped);
+      setLoaded(true);
+    } catch (err) {
+      console.error("Feil under lasting av Excel-fil:", err);
+      alert("Kunne ikke laste Excel-filen. Prøv igjen senere.");
+    }
+  }
+
+  fetchExcel();
+}, []);
 
       const finishQuiz = (ans, quit) => {
-        setAnswers(ans || {});
-        if (quit) { setEnded(true); return; }
-        setScore((ans.q1 + ans.q2 + ans.q3) / 3);
+        setAnswers(ans || {});if (quit) {setEnded(true); return;}setScore((ans.q1+ans.q2+ans.q3)/3);
       };
 
-      const handleSelect = c => { setFinalCandidate(c); };
-      const retry = () => { setIntro(true); setAnswers({}); setScore(null); setEnded(false); setFinalCandidate(null); };
+      const handleSelect = c => {setFinalCandidate(c);};
+      const retry = () => {setIntro(true);setAnswers({});setScore(null);setEnded(false);setFinalCandidate(null);};
 
       if (intro) {
         return (
@@ -219,14 +224,13 @@
         );
       }
 
-      if (!loaded) {
-        return (
-          <div className="text-center">
-            <h1 className="mb-4 text-2xl">Last opp Excel med kardinaldata</h1>
-            <input type="file" accept=".xlsx" onChange={handleFile} />
-          </div>
-        );
-      }
+     if (!loaded) {
+  return (
+    <div className="text-center text-xl p-8">
+      Laster inn kardinaldata...
+    </div>
+  );
+}
 
       if (ended && answers.gender === 'Nei') {
         return (
@@ -265,8 +269,8 @@
             </div>
           </div>
         );
-      }
-      // Default rendering of top 3 candidates
+      };
+
       return (
         <Results
           data={data}
