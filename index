@@ -9,7 +9,7 @@
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="konklavesimulator" />
   <meta property="og:url" content="https://yourdomain.com/index.html" />
-  <meta property="og:description" content="Bli med på en humoristisk quiz og finn din kardinal!" />
+  <meta property="og:description" content="Finn din kardinal!" />
   <meta name="twitter:card" content="summary_large_image" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
